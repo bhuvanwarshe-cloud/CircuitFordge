@@ -35,6 +35,9 @@ const PORT = process.env.PORT || 5000
 // ── Security & parsing middleware ─────────────────────────────────────────────
 app.use(helmet())
 
+// PRODUCTION: set FRONTEND_URL=https://your-app.vercel.app in Render env vars.
+// Vercel preview deployments get unique *.vercel.app subdomains — the regex
+// below allows all of them automatically so you don't have to whitelist each one.
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:5173',
@@ -45,8 +48,12 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (e.g., curl, Postman) or known origins
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+    // Allow requests with no origin (e.g., curl, Postman)
+    if (!origin) return cb(null, true)
+    // Allow exact whitelisted origins
+    if (allowedOrigins.includes(origin)) return cb(null, true)
+    // Allow any Vercel preview deployment (*.vercel.app)
+    if (/^https:\/\/[a-z0-9-]+-[a-z0-9]+-[a-z0-9]+\.vercel\.app$/.test(origin)) return cb(null, true)
     cb(new Error(`CORS: origin ${origin} not allowed`))
   },
   methods:     ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
