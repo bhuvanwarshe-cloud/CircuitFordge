@@ -1,9 +1,20 @@
-import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
-
 /**
- * Requires authenticated session.
- * Redirects unauthenticated users to /login.
+ * RouteGuards.jsx — Route protection components
+ *
+ * RequireAuth    — uses Supabase AuthContext (students only, UNCHANGED)
+ * RequireAdmin   — uses AdminAuthContext (custom JWT, separate system)
+ * RedirectIfAuthenticated — checks both contexts for smart redirects
+ */
+
+import { Navigate, useLocation } from 'react-router-dom'
+import { useAuth }      from '../../contexts/AuthContext'
+import { useAdminAuth } from '../../contexts/AdminAuthContext'
+
+// ── RequireAuth ───────────────────────────────────────────────────────────────
+/**
+ * Requires Supabase student authentication.
+ * Redirects unauthenticated students to /login.
+ * UNCHANGED — still uses Supabase AuthContext.
  */
 export function RequireAuth({ children }) {
   const { isAuthenticated, loading } = useAuth()
@@ -16,44 +27,53 @@ export function RequireAuth({ children }) {
   return children
 }
 
+// ── RequireAdmin ──────────────────────────────────────────────────────────────
 /**
- * Requires admin role.
- * Students who reach this route are shown an Unauthorized page.
- * Unauthenticated users go to /admin/login.
+ * Requires custom admin JWT authentication.
+ * Unauthenticated → /admin/login
+ * Authenticated   → render children
+ *
+ * Uses AdminAuthContext — completely separate from student Supabase auth.
  */
 export function RequireAdmin({ children }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth()
+  const { isAdminAuthenticated, adminLoading } = useAdminAuth()
   const location = useLocation()
 
-  if (loading) return <AuthLoadingScreen dark />
+  if (adminLoading) return <AuthLoadingScreen dark />
 
-  if (!isAuthenticated) {
+  if (!isAdminAuthenticated) {
     return <Navigate to="/admin/login" state={{ from: location }} replace />
   }
 
-  if (!isAdmin) {
-    return <UnauthorizedPage />
-  }
-
   return children
 }
 
+// ── RedirectIfAuthenticated ───────────────────────────────────────────────────
 /**
  * Redirects already-logged-in users away from auth pages.
- * Admin → /admin
- * Student → /dashboard
+ *   Admin (custom JWT)    → /admin
+ *   Student (Supabase)    → /dashboard
+ *
+ * Checks admin auth first, then student auth.
  */
 export function RedirectIfAuthenticated({ children, adminRedirect = '/admin' }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth()
+  const { isAuthenticated, loading: studentLoading }              = useAuth()
+  const { isAdminAuthenticated, adminLoading }                    = useAdminAuth()
 
-  if (loading) return <AuthLoadingScreen />
-  if (isAuthenticated) {
-    return <Navigate to={isAdmin ? adminRedirect : '/dashboard'} replace />
+  // Wait until both auth systems have resolved
+  if (studentLoading || adminLoading) return <AuthLoadingScreen />
+
+  if (isAdminAuthenticated) {
+    return <Navigate to={adminRedirect} replace />
   }
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />
+  }
+
   return children
 }
 
-// ── Loading Screen ────────────────────────────────────────────────────────────
+// ── Loading Screen ─────────────────────────────────────────────────────────────
 function AuthLoadingScreen({ dark = false }) {
   return (
     <div style={{
@@ -80,7 +100,7 @@ function AuthLoadingScreen({ dark = false }) {
   )
 }
 
-// ── Unauthorized Page ─────────────────────────────────────────────────────────
+// ── Unauthorized Page ──────────────────────────────────────────────────────────
 function UnauthorizedPage() {
   return (
     <div style={{

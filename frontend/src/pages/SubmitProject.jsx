@@ -250,16 +250,38 @@ export default function SubmitProject() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }} className="form-grid-2">
                       <div className="input-group">
                         <label className="input-label">Project Category <span style={{ color: 'var(--rose-400)' }}>*</span></label>
-                        <select className="input-field" value={form.category} onChange={e => set('category', e.target.value)} required style={{ appearance: 'none', cursor: 'pointer' }}>
-                          <option value="">Select category</option>
-                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        <select
+                          className="input-field"
+                          value={form.category}
+                          onChange={e => set('category', e.target.value)}
+                          required
+                          style={{
+                            appearance: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: 'rgba(13,18,35,0.88)',
+                            color: 'var(--text-primary)',
+                          }}
+                        >
+                          <option value="" style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--text-primary)' }}>Select category</option>
+                          {CATEGORIES.map(c => <option key={c} value={c} style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--text-primary)' }}>{c}</option>)}
                         </select>
                       </div>
                       <div className="input-group">
                         <label className="input-label">Current Semester <span style={{ color: 'var(--rose-400)' }}>*</span></label>
-                        <select className="input-field" value={form.semester} onChange={e => set('semester', e.target.value)} required style={{ appearance: 'none', cursor: 'pointer' }}>
-                          <option value="">Select semester</option>
-                          {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+                        <select
+                          className="input-field"
+                          value={form.semester}
+                          onChange={e => set('semester', e.target.value)}
+                          required
+                          style={{
+                            appearance: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: 'rgba(13,18,35,0.88)',
+                            color: 'var(--text-primary)',
+                          }}
+                        >
+                          <option value="" style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--text-primary)' }}>Select semester</option>
+                          {SEMESTERS.map(s => <option key={s} value={s} style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--text-primary)' }}>{s}</option>)}
                         </select>
                       </div>
                     </div>

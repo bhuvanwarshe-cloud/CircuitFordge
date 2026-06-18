@@ -77,7 +77,7 @@ export async function getProjects(req, res, next) {
       .select(`
         id, project_ref, title, status, progress, current_phase,
         created_at, updated_at, deadline, category_name,
-        student:profiles!projects_student_id_fkey(full_name, email, college_name)
+        student:profiles!projects_student_id_fkey(full_name, college_name)
       `, { count: 'exact' })
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
@@ -105,16 +105,32 @@ export async function getProject(req, res, next) {
       .from('projects')
       .select(`
         *,
-        student:profiles!projects_student_id_fkey(id, full_name, email, college_name, semester, program),
+        student:profiles!projects_student_id_fkey(id, full_name, college_name, semester, program),
         project_files(id, file_type, label, storage_path, bucket_name, mime_type, size_bytes, created_at),
-        project_updates(id, message, phase, created_at, created_by:profiles(full_name)),
-        delivery_tracking(id, status, pickup_location, estimated_date, delivery_type, tracking_number, notes)
+        project_updates(
+          id,
+          message,
+          phase,
+          created_at,
+          created_by:profiles!project_updates_author_id_fkey(full_name)
+        ),
+        delivery_tracking(
+          id,
+          status,
+          pickup_location:pickup_address,
+          estimated_date:scheduled_date,
+          delivery_type,
+          tracking_number,
+          notes
+        )
       `)
       .eq('id', id)
       .eq('is_deleted', false)
       .single()
 
-    if (error || !project) {
+    if (error) throw error
+
+    if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found.' })
     }
 

@@ -1,92 +1,115 @@
 /**
  * adminService.js — Admin API calls (all mutations via backend, never direct DB)
+ *
+ * Token is automatically pulled from sessionStorage (set by AdminAuthContext).
+ * Do NOT pass token as an argument — apiFetch reads it automatically via getAdminToken().
  */
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API       = import.meta.env.VITE_API_URL || '/api'
+const TOKEN_KEY = 'cf_admin_token'
 
+/** Read the current admin JWT from sessionStorage */
+function getAdminToken() {
+  return sessionStorage.getItem(TOKEN_KEY)
+}
+
+/**
+ * Authenticated fetch for admin endpoints.
+ * Automatically attaches the admin JWT from sessionStorage.
+ * Throws on non-ok responses.
+ */
 async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message || `Request failed: ${res.status}`)
+  const token = getAdminToken()
+
+  const isFormData = options.body instanceof FormData
+
+  const headers = {
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  }
+
+  let res
+  try {
+    res = await fetch(`${API}${path}`, { ...options, headers })
+  } catch {
+    throw new Error('Unable to reach the backend API. Is the server running?')
+  }
+
+  let data = {}
+  const rawBody = await res.text()
+  if (rawBody) {
+    try {
+      data = JSON.parse(rawBody)
+    } catch {
+      // non-JSON body — leave data as {}
+    }
+  }
+
+  if (!res.ok) {
+    throw new Error(data.message || data.error || `Request failed: ${res.status}`)
+  }
+
   return data
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
-export function getAdminStats(token) {
-  return apiFetch('/admin/stats', { headers: { Authorization: `Bearer ${token}` } })
+export function getAdminStats() {
+  return apiFetch('/admin/stats')
 }
 
 // ── Projects ──────────────────────────────────────────────────────────────────
-export function getAllProjects(token, params = {}) {
+export function getAllProjects(params = {}) {
   const qs = new URLSearchParams(params).toString()
-  return apiFetch(`/admin/projects${qs ? `?${qs}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  return apiFetch(`/admin/projects${qs ? `?${qs}` : ''}`)
 }
 
-export function getAdminProject(projectId, token) {
-  return apiFetch(`/admin/projects/${projectId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export function getAdminProject(projectId) {
+  return apiFetch(`/admin/projects/${projectId}`)
 }
 
-export function updateProjectStatus(projectId, data, token) {
+export function updateProjectStatus(projectId, data) {
   return apiFetch(`/admin/projects/${projectId}/status`, {
-    method:  'PATCH',
-    headers: { Authorization: `Bearer ${token}` },
-    body:    JSON.stringify(data),
+    method: 'PATCH',
+    body:   JSON.stringify(data),
   })
 }
 
-export function updateDeliveryStatus(projectId, data, token) {
+export function updateDeliveryStatus(projectId, data) {
   return apiFetch(`/admin/projects/${projectId}/delivery`, {
-    method:  'PATCH',
-    headers: { Authorization: `Bearer ${token}` },
-    body:    JSON.stringify(data),
+    method: 'PATCH',
+    body:   JSON.stringify(data),
   })
 }
 
-// ── Upload File (FormData — no Content-Type header override) ──────────────────
-export async function uploadProjectFile(projectId, file, fileType, label, token) {
+// ── Upload File (FormData — Content-Type must NOT be set manually) ─────────────
+export async function uploadProjectFile(projectId, file, fileType, label) {
   const form = new FormData()
   form.append('file', file)
   form.append('file_type', fileType)
   form.append('label', label)
 
-  const res = await fetch(`${API}/projects/${projectId}/files`, {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body:    form,
+  return apiFetch(`/projects/${projectId}/files`, {
+    method: 'POST',
+    body:   form,
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message || 'Upload failed')
-  return data
 }
 
 // ── Notifications ─────────────────────────────────────────────────────────────
-export function sendNotification(payload, token) {
+export function sendNotification(payload) {
   return apiFetch('/admin/notifications', {
-    method:  'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body:    JSON.stringify(payload),
+    method: 'POST',
+    body:   JSON.stringify(payload),
   })
 }
 
 // ── Audit Logs ────────────────────────────────────────────────────────────────
-export function getAuditLogs(token, params = {}) {
+export function getAuditLogs(params = {}) {
   const qs = new URLSearchParams(params).toString()
-  return apiFetch(`/admin/audit-logs${qs ? `?${qs}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  return apiFetch(`/admin/audit-logs${qs ? `?${qs}` : ''}`)
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
-export function getUsers(token) {
-  return apiFetch('/admin/users', { headers: { Authorization: `Bearer ${token}` } })
+export function getUsers() {
+  return apiFetch('/admin/users')
 }

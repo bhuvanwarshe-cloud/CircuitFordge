@@ -1,5 +1,14 @@
+/**
+ * admin.js — Protected admin API routes
+ *
+ * All routes require a valid admin JWT (issued by POST /api/admin/login).
+ * Uses the custom requireAdmin middleware — NOT Supabase auth.
+ *
+ * Mounted at: /api/admin
+ */
+
 import { Router } from 'express'
-import { protect, adminOnly } from '../middleware/auth.js'
+import { requireAdmin } from '../middleware/requireAdmin.js'
 import {
   getDashboardStats,
   getUsers,
@@ -13,8 +22,8 @@ import {
 
 const router = Router()
 
-// ── All admin routes require auth + admin role ────────────────────────────────
-router.use(protect, adminOnly)
+// ── All routes below require a valid admin JWT ────────────────────────────────
+router.use(requireAdmin)
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 router.get('/stats', getDashboardStats)
@@ -23,9 +32,9 @@ router.get('/stats', getDashboardStats)
 router.get('/users', getUsers)
 
 // ── Projects ──────────────────────────────────────────────────────────────────
-router.get('/projects',              getAllProjects)
-router.get('/projects/:id',          getProjectById)
-router.patch('/projects/:id/status', updateProjectStatus)
+router.get('/projects',                getAllProjects)
+router.get('/projects/:id',            getProjectById)
+router.patch('/projects/:id/status',   updateProjectStatus)
 router.patch('/projects/:id/delivery', updateDeliveryStatus)
 
 // ── Notifications ─────────────────────────────────────────────────────────────

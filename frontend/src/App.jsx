@@ -12,8 +12,16 @@ import StudentDashboard from './pages/StudentDashboard'
 import SubmitProject    from './pages/SubmitProject'
 
 // ── Admin Pages (hidden — no public links) ─────────────────────
-import AdminLogin     from './pages/admin/AdminLogin'
-import AdminDashboard from './pages/AdminDashboard'
+import AdminLogin         from './pages/admin/AdminLogin'
+import AdminLayout        from './pages/admin/AdminLayout'
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import OrdersPage         from './pages/admin/OrdersPage'
+import StudentsPage       from './pages/admin/StudentsPage'
+import AnalyticsPage      from './pages/admin/AnalyticsPage'
+import FileManagerPage    from './pages/admin/FileManagerPage'
+import DeliveryPage       from './pages/admin/DeliveryPage'
+import NotificationsPage  from './pages/admin/NotificationsPage'
+import SettingsPage       from './pages/admin/SettingsPage'
 
 // ── Route Guards ───────────────────────────────────────────────
 import {
@@ -52,17 +60,23 @@ export default function App() {
         } />
 
         {/* ── Admin (HIDDEN — access via direct URL only) ─────── */}
-        {/*
-          /admin/login is intentionally NOT linked from any public page.
-          RequireAdmin automatically redirects here for unauthenticated users.
-        */}
         <Route path="/admin/login" element={
           <RedirectIfAuthenticated adminRedirect="/admin">
             <AdminLogin />
           </RedirectIfAuthenticated>
         } />
-        <Route path="/admin"  element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
-        <Route path="/admin/*" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+        <Route path="/admin" element={
+          <RequireAdmin><AdminLayout /></RequireAdmin>
+        }>
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="orders" element={<OrdersPage />} />
+          <Route path="students" element={<StudentsPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="files" element={<FileManagerPage />} />
+          <Route path="delivery" element={<DeliveryPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
 
         {/* ── 404 ─────────────────────────────────────────────── */}
         <Route path="*" element={<NotFoundPage />} />

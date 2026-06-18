@@ -14,6 +14,7 @@ dotenv.config()
 // Route imports
 import authRoutes         from './routes/auth.js'
 import projectRoutes      from './routes/projects.js'
+import adminAuthRoutes    from './routes/adminAuthRoutes.js'
 import adminRoutes        from './routes/admin.js'
 import notificationRoutes from './routes/notifications.js'
 
@@ -91,6 +92,9 @@ app.get('/api/health', (req, res) => {
 // ── API Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth',          authLimiter, authRoutes)
 app.use('/api/projects',      projectRoutes)
+// Admin auth (login/logout/me) — mounted FIRST, before protected admin routes
+app.use('/api/admin',         adminAuthRoutes)
+// Protected admin routes — internal requireAdmin middleware guards all
 app.use('/api/admin',         adminRoutes)
 app.use('/api/notifications', notificationRoutes)
 
@@ -99,10 +103,20 @@ app.use(notFound)
 app.use(errorHandler)
 
 // ── Start server ──────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\n⚡ CircuitForge API running`)
   console.log(`   → http://localhost:${PORT}/api/health`)
   console.log(`   → Environment: ${process.env.NODE_ENV || 'development'}\n`)
+})
+
+server.on('error', err => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. CircuitForge API is likely already running.`)
+    console.error(`Check http://localhost:${PORT}/api/health or stop the other process before starting a new one.`)
+    process.exit(1)
+  }
+
+  throw err
 })
 
 export default app

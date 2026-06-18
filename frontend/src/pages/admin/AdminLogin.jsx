@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, ShieldAlert, Lock, Mail, AlertTriangle, Terminal } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
-import { verifyAdminAccess } from '../../services/authService'
+import { useAdminAuth } from '../../contexts/AdminAuthContext'
 
 // ── Scanline overlay effect ───────────────────────────────────────────────────
 function ScanlineOverlay() {
@@ -63,7 +62,7 @@ function AdminBackground() {
 }
 
 // ── Typing text effect ────────────────────────────────────────────────────────
-function TypingText({ text, className = '', speed = 60 }) {
+function TypingText({ text, speed = 60 }) {
   const [displayed, setDisplayed] = useState('')
   useEffect(() => {
     setDisplayed('')
@@ -75,7 +74,7 @@ function TypingText({ text, className = '', speed = 60 }) {
     return () => clearInterval(iv)
   }, [text, speed])
   return (
-    <span className={className}>
+    <span>
       {displayed}
       <span style={{ animation: 'blink 1s step-end infinite', color: '#ef4444', marginLeft: 2 }}>█</span>
       <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
@@ -87,24 +86,26 @@ function TypingText({ text, className = '', speed = 60 }) {
 export default function AdminLogin() {
   const navigate  = useNavigate()
   const location  = useLocation()
-  const { signIn, signOut, isAdmin, isAuthenticated, loading: authLoading } = useAuth()
 
-  const [form,    setForm]    = useState({ email: '', password: '' })
-  const [showPw,  setShowPw]  = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
-  const [attempts,setAttempts]= useState(0)
-  const [locked,  setLocked]  = useState(false)
-  const [lockTime,setLockTime]= useState(0)
+  // ── CUSTOM admin auth — NOT Supabase ──────────────────────────────────────
+  const { login, isAdminAuthenticated, adminLoading } = useAdminAuth()
+
+  const [form,     setForm]     = useState({ email: '', password: '' })
+  const [showPw,   setShowPw]   = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
+  const [attempts, setAttempts] = useState(0)
+  const [locked,   setLocked]   = useState(false)
+  const [lockTime, setLockTime] = useState(0)
   const timerRef = useRef(null)
 
-  // Redirect if already admin
+  // Redirect if already authenticated as admin
   useEffect(() => {
-    if (!authLoading && isAuthenticated && isAdmin) {
+    if (!adminLoading && isAdminAuthenticated) {
       const from = location.state?.from?.pathname || '/admin'
       navigate(from, { replace: true })
     }
-  }, [authLoading, isAuthenticated, isAdmin, navigate, location])
+  }, [adminLoading, isAdminAuthenticated, navigate, location])
 
   // Lockout countdown
   useEffect(() => {
@@ -129,37 +130,27 @@ export default function AdminLogin() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (locked) return
+    if (locked || loading) return
 
     setLoading(true)
     setError('')
 
     try {
-      // Step 1: Authenticate with Supabase
-      const { user } = await signIn(form.email.trim().toLowerCase(), form.password)
-
-      // Step 2: Verify admin role from DB (frontend guard — backend enforces separately)
-      try {
-        await verifyAdminAccess(user.id)
-        // ✅ Admin verified — useEffect will handle redirect
-      } catch (roleErr) {
-        // ❌ Valid Supabase user but NOT an admin — sign them out immediately
-        await signOut()
-        setError(roleErr.message || 'Access denied. Admin privileges required.')
-        setAttempts(a => a + 1)
-      }
-
+      // ── Call custom backend auth — NOT Supabase ──────────────────────────
+      await login(form.email.trim().toLowerCase(), form.password)
+      // On success, useEffect above will detect isAdminAuthenticated and redirect
     } catch (err) {
       const newAttempts = attempts + 1
       setAttempts(newAttempts)
 
+      // Client-side lockout after 5 failed attempts (backend also rate-limits)
       if (newAttempts >= 5) {
         setLocked(true)
         setLockTime(30)
-        setError('Too many failed attempts. Account locked for 30 seconds.')
+        setError('Too many failed attempts. Please wait 30 seconds before trying again.')
       } else {
         setError(
-          err.message?.includes('Invalid login')
+          err.message?.includes('credentials') || err.message?.includes('Invalid')
             ? `Invalid credentials. ${5 - newAttempts} attempt${5 - newAttempts !== 1 ? 's' : ''} remaining.`
             : err.message || 'Authentication failed. Please try again.'
         )
@@ -168,9 +159,6 @@ export default function AdminLogin() {
       setLoading(false)
     }
   }
-
-  // ── Role check after login: only admins proceed ───────────────────────────
-  // (handled by useEffect + RequireAdmin in router)
 
   return (
     <div className="tw" style={{
@@ -354,7 +342,7 @@ export default function AdminLogin() {
               )}
             </AnimatePresence>
 
-            {/* Lockout bar */}
+            {/* Lockout progress bar */}
             {locked && (
               <div style={{
                 background: 'rgba(239,68,68,0.06)',
@@ -387,9 +375,10 @@ export default function AdminLogin() {
                 <div style={{ position: 'relative' }}>
                   <Mail size={14} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(239,68,68,0.5)' }} />
                   <input
+                    id="admin-email"
                     type="email"
                     autoComplete="username"
-                    placeholder="admin@circuitforge.in"
+                    placeholder="admin@circuitforge.com"
                     value={form.email}
                     onChange={e => set('email', e.target.value)}
                     disabled={locked || loading}
@@ -405,9 +394,10 @@ export default function AdminLogin() {
                       fontFamily: "'Inter', sans-serif",
                       outline: 'none',
                       transition: 'all 0.2s',
+                      boxSizing: 'border-box',
                     }}
                     onFocus={e => { e.target.style.borderColor = 'rgba(239,68,68,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.1)' }}
-                    onBlur={e => { e.target.style.borderColor = error ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,0.15)'; e.target.style.boxShadow = 'none' }}
+                    onBlur={e  => { e.target.style.borderColor = error ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,0.15)'; e.target.style.boxShadow = 'none' }}
                   />
                 </div>
               </div>
@@ -420,6 +410,7 @@ export default function AdminLogin() {
                 <div style={{ position: 'relative' }}>
                   <Lock size={14} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(239,68,68,0.5)' }} />
                   <input
+                    id="admin-password"
                     type={showPw ? 'text' : 'password'}
                     autoComplete="current-password"
                     placeholder="••••••••••••"
@@ -438,13 +429,15 @@ export default function AdminLogin() {
                       fontFamily: "'Inter', sans-serif",
                       outline: 'none',
                       transition: 'all 0.2s',
+                      boxSizing: 'border-box',
                     }}
                     onFocus={e => { e.target.style.borderColor = 'rgba(239,68,68,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.1)' }}
-                    onBlur={e => { e.target.style.borderColor = error ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,0.15)'; e.target.style.boxShadow = 'none' }}
+                    onBlur={e  => { e.target.style.borderColor = error ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,0.15)'; e.target.style.boxShadow = 'none' }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPw(v => !v)}
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
                     style={{ position: 'absolute', right: '0.9rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(148,163,184,0.5)', padding: 0 }}
                   >
                     {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -454,6 +447,7 @@ export default function AdminLogin() {
 
               {/* Submit */}
               <motion.button
+                id="admin-login-submit"
                 type="submit"
                 disabled={loading || locked || !form.email || !form.password}
                 whileHover={!loading && !locked ? { scale: 1.01 } : {}}

@@ -4,7 +4,6 @@ import {
   ArrowLeft, CheckCircle2, Clock, Upload, FileText, Zap, Send,
   Edit3, Save, X, Truck, Package, Loader2, AlertCircle
 } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
 import { updateProjectStatus, updateDeliveryStatus, sendNotification, uploadProjectFile } from '../../services/adminService'
 
 const STATUS_FLOW = [
@@ -16,13 +15,15 @@ const STATUS_FLOW = [
   { value: 'cancelled', label: 'Cancelled',   color: 'var(--red-400)' },
 ]
 
+// Actual delivery_status enum: not_started, packaging, dispatched, out_for_delivery, delivered, picked_up
+// Actual delivery_type enum: pickup, delivery
 const DELIVERY_FLOW = [
-  { value: 'pending',          label: 'Pending' },
-  { value: 'assembling',       label: 'Assembling' },
-  { value: 'testing',          label: 'Testing' },
-  { value: 'ready_for_pickup', label: 'Ready for Pickup' },
-  { value: 'shipped',          label: 'Shipped' },
-  { value: 'delivered',        label: 'Delivered' },
+  { value: 'not_started',       label: 'Not Started' },
+  { value: 'packaging',         label: 'Packaging' },
+  { value: 'dispatched',        label: 'Dispatched' },
+  { value: 'out_for_delivery',  label: 'Out for Delivery' },
+  { value: 'delivered',         label: 'Delivered' },
+  { value: 'picked_up',         label: 'Picked Up' },
 ]
 
 export default function AdminProjectDetail({ project: initialProject, onBack, onUpdate }) {
@@ -30,8 +31,6 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState(false)
   const [toast, setToast] = useState(null)
-  const { session } = useAuth()
-  const token = session?.access_token
 
   // Status form state
   const [status, setStatus] = useState(project?.status || 'pending')
@@ -39,10 +38,10 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
   const [phase, setPhase] = useState(project?.current_phase || '')
   const [notes, setNotes] = useState(project?.manager_notes || '')
 
-  // Delivery state
-  const [deliveryStatus, setDeliveryStatus] = useState(project?.delivery_tracking?.[0]?.status || 'pending')
-  const [pickupLocation, setPickupLocation] = useState(project?.delivery_tracking?.[0]?.pickup_location || '')
-  const [estimatedDate, setEstimatedDate] = useState(project?.delivery_tracking?.[0]?.estimated_date || '')
+  // Delivery state — column names match actual delivery_tracking table schema
+  const [deliveryStatus, setDeliveryStatus] = useState(project?.delivery_tracking?.[0]?.status || 'not_started')
+  const [pickupLocation, setPickupLocation] = useState(project?.delivery_tracking?.[0]?.pickup_address || '')
+  const [estimatedDate, setEstimatedDate] = useState(project?.delivery_tracking?.[0]?.scheduled_date || '')
   const [deliveryType, setDeliveryType] = useState(project?.delivery_tracking?.[0]?.delivery_type || 'pickup')
 
   // File upload state
@@ -63,9 +62,9 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
       setNotes(initialProject.manager_notes || '')
       const dt = initialProject.delivery_tracking?.[0]
       if (dt) {
-        setDeliveryStatus(dt.status || 'pending')
-        setPickupLocation(dt.pickup_location || '')
-        setEstimatedDate(dt.estimated_date || '')
+        setDeliveryStatus(dt.status || 'not_started')
+        setPickupLocation(dt.pickup_address || '')
+        setEstimatedDate(dt.scheduled_date || '')
         setDeliveryType(dt.delivery_type || 'pickup')
       }
     }
@@ -79,7 +78,7 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
   const handleSaveStatus = async () => {
     try {
       setLoading(true)
-      await updateProjectStatus(project.id, { status, progress: parseInt(progress), current_phase: phase, manager_notes: notes }, token)
+      await updateProjectStatus(project.id, { status, progress: parseInt(progress), current_phase: phase, manager_notes: notes })
       setEditing(false)
       showToast('Project status updated!')
       if (onUpdate) onUpdate()
@@ -94,9 +93,11 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
     try {
       setLoading(true)
       await updateDeliveryStatus(project.id, {
-        status: deliveryStatus, pickup_location: pickupLocation,
-        estimated_date: estimatedDate || null, delivery_type: deliveryType,
-      }, token)
+        status:          deliveryStatus,
+        pickup_address:  pickupLocation,
+        scheduled_date:  estimatedDate || null,
+        delivery_type:   deliveryType,
+      })
       showToast('Delivery status updated!')
       if (onUpdate) onUpdate()
     } catch (err) {
@@ -111,7 +112,7 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
     if (!file) return
     try {
       setLoading(true)
-      await uploadProjectFile(project.id, file, fileType, fileLabel || file.name, token)
+      await uploadProjectFile(project.id, file, fileType, fileLabel || file.name)
       setFile(null)
       setFileLabel('')
       showToast('File uploaded successfully!')
@@ -134,7 +135,7 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
         title:      notifTitle,
         body:       notifBody,
         type:       'admin_note',
-      }, token)
+      })
       setNotifTitle('')
       setNotifBody('')
       showToast('Notification sent!')
@@ -257,7 +258,7 @@ export default function AdminProjectDetail({ project: initialProject, onBack, on
                 <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: '0.35rem' }}>Delivery Type</label>
                 <select className="input-field" value={deliveryType} onChange={e => setDeliveryType(e.target.value)} style={{ width: '100%' }}>
                   <option value="pickup">Pickup at Office</option>
-                  <option value="courier">Courier Delivery</option>
+                  <option value="delivery">Courier Delivery</option>
                 </select>
               </div>
               <div>

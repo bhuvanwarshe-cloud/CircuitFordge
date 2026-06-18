@@ -274,6 +274,7 @@ ALTER TABLE project_files ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
 
 -- Database Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status) WHERE NOT is_deleted;

@@ -27,36 +27,51 @@ router.get('/', async (req, res, next) => {
   }
 })
 
-// PATCH /api/notifications/:id/read — mark single as read
-router.patch('/:id/read', async (req, res, next) => {
+// PATCH /api/notifications/read-all — mark all as read (must be before /:id/read)
+router.patch('/read-all', async (req, res, next) => {
   try {
-    const { id } = req.params
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('user_id', req.user.id)  // security: can only mark own notifications
-      .select()
-      .single()
+      .update({ is_read: true })
+      .eq('user_id', req.user.id)
+      .eq('is_read', false)
+      .eq('is_deleted', false)
 
     if (error) throw error
-    res.json({ success: true, notification: data })
+    res.json({ success: true, message: 'All notifications marked as read.' })
   } catch (err) {
     next(err)
   }
 })
 
-// PATCH /api/notifications/read-all — mark all as read
-router.patch('/read-all', async (req, res, next) => {
+// PATCH /api/notifications/:id/read — mark single as read
+router.patch('/:id/read', async (req, res, next) => {
   try {
-    const { error } = await supabaseAdmin
+    const { id } = req.params
+
+    // #region agent log
+    fetch('http://127.0.0.1:7823/ingest/89637cbf-6ede-45c9-9124-7c267c532645',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'954d8d'},body:JSON.stringify({sessionId:'954d8d',runId:'pre-fix',hypothesisId:'H1-H3',location:'notifications.js:patch-read',message:'mark read attempt',data:{notificationId:id,userId:req.user?.id},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
+    const { data, error } = await supabaseAdmin
       .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
+      .update({ is_read: true })
+      .eq('id', id)
       .eq('user_id', req.user.id)
-      .eq('is_read', false)
+      .eq('is_deleted', false)
+      .select()
+      .maybeSingle()
+
+    // #region agent log
+    fetch('http://127.0.0.1:7823/ingest/89637cbf-6ede-45c9-9124-7c267c532645',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'954d8d'},body:JSON.stringify({sessionId:'954d8d',runId:'pre-fix',hypothesisId:'H1-H4',location:'notifications.js:patch-read-result',message:'mark read result',data:{notificationId:id,found:!!data,errorCode:error?.code,errorMessage:error?.message},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     if (error) throw error
-    res.json({ success: true, message: 'All notifications marked as read.' })
+    if (!data) {
+      return res.status(404).json({ success: false, message: 'Notification not found.' })
+    }
+
+    res.json({ success: true, notification: data })
   } catch (err) {
     next(err)
   }

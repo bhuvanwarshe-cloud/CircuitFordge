@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { studentSignUp } from '../services/authService'
 
 const SEMESTERS = ['3rd Sem', '4th Sem', '5th Sem', '6th Sem', '7th Sem', '8th Sem']
-const PROGRAMS  = ['B.Tech Electronics', 'B.Tech E&TC', 'Diploma Electronics', 'Diploma E&TC', 'B.Tech EEE', 'Other']
+const PROGRAMS  = ['Electronics', 'E&TC', 'Diploma Electronics', 'Diploma E&TC', 'EEE', 'Electrical', 'VLSI']
 
 export default function SignupPage() {
   const navigate      = useNavigate()
@@ -211,9 +211,21 @@ export default function SignupPage() {
                     </div>
                     <div className="input-group">
                       <label className="input-label">Program</label>
-                      <select id="signup-program" className="input-field" value={form.program} onChange={e => set('program', e.target.value)} required style={{ appearance: 'none', cursor: 'pointer' }}>
-                        <option value="">Select your program</option>
-                        {PROGRAMS.map(p => <option key={p} value={p}>{p}</option>)}
+                      <select
+                        id="signup-program"
+                        className="input-field"
+                        value={form.program}
+                        onChange={e => set('program', e.target.value)}
+                        required
+                        style={{
+                          appearance: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: 'rgba(13,18,35,0.88)',
+                          color: 'var(--text-primary)',
+                        }}
+                      >
+                        <option value="" style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--text-primary)' }}>Select your program</option>
+                        {PROGRAMS.map(p => <option key={p} value={p} style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--text-primary)' }}>{p}</option>)}
                       </select>
                     </div>
                     <div className="input-group">

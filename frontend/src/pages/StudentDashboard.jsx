@@ -8,6 +8,7 @@ import {
   User, Loader2, WifiOff
 } from 'lucide-react'
 import PageTransition from '../components/PageTransition'
+import NotificationRealtimeToast from '../components/NotificationRealtimeToast'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import {
@@ -15,6 +16,7 @@ import {
   getProjectDetails,
   subscribeToProjectUpdates,
   subscribeToProjectStatus,
+  unsubscribeChannel,
   getSignedFileUrl
 } from '../services/projectService'
 import { subscribeToDeliveryUpdates } from '../services/notificationService'
@@ -486,7 +488,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [realtimeStatus, setRealtimeStatus] = useState('connecting')
 
-  const { notifications, unreadCount, markAsRead, loading: notifLoading } = useNotifications()
+  const { notifications, unreadCount, markAsRead, loading: notifLoading, realtimeToast, dismissRealtimeToast } = useNotifications()
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -533,9 +535,10 @@ export default function StudentDashboard() {
     setupSubs().catch(() => setRealtimeStatus('offline'))
 
     return () => {
-      if (updatesSub) updatesSub.unsubscribe()
-      if (statusSub) statusSub.unsubscribe()
-      if (deliverySub) deliverySub.unsubscribe()
+      // Bug #6 fix: use supabase.removeChannel() via helper — NOT channel.unsubscribe()
+      unsubscribeChannel(updatesSub)
+      unsubscribeChannel(statusSub)
+      unsubscribeChannel(deliverySub)
     }
   }, [activeProject?.id])
 
@@ -586,6 +589,7 @@ export default function StudentDashboard() {
 
   return (
     <PageTransition>
+      <NotificationRealtimeToast notification={realtimeToast} onDismiss={dismissRealtimeToast} />
       <div className="dashboard-layout">
         <Sidebar active={active} setActive={setActive} open={sidebarOpen} setOpen={setSidebarOpen} project={activeProject} profile={profile} unreadCount={unreadCount} logout={handleLogout} />
         <main className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
