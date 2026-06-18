@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://circuitfordge.onrender.com"
+      "destination": "https://circuitfordge.onrender.com/api/:path*"
     },
     {
       "source": "/((?!api/).*)",
