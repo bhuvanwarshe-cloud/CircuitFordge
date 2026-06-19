@@ -49,10 +49,6 @@ router.patch('/:id/read', async (req, res, next) => {
   try {
     const { id } = req.params
 
-    // #region agent log
-    fetch('http://127.0.0.1:7823/ingest/89637cbf-6ede-45c9-9124-7c267c532645',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'954d8d'},body:JSON.stringify({sessionId:'954d8d',runId:'pre-fix',hypothesisId:'H1-H3',location:'notifications.js:patch-read',message:'mark read attempt',data:{notificationId:id,userId:req.user?.id},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-
     const { data, error } = await supabaseAdmin
       .from('notifications')
       .update({ is_read: true })
@@ -61,10 +57,6 @@ router.patch('/:id/read', async (req, res, next) => {
       .eq('is_deleted', false)
       .select()
       .maybeSingle()
-
-    // #region agent log
-    fetch('http://127.0.0.1:7823/ingest/89637cbf-6ede-45c9-9124-7c267c532645',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'954d8d'},body:JSON.stringify({sessionId:'954d8d',runId:'pre-fix',hypothesisId:'H1-H4',location:'notifications.js:patch-read-result',message:'mark read result',data:{notificationId:id,found:!!data,errorCode:error?.code,errorMessage:error?.message},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
 
     if (error) throw error
     if (!data) {

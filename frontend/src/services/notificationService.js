@@ -4,14 +4,14 @@
 
 import { supabase } from '../lib/supabase'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${API}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
   })
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.message || `Request failed: ${res.status}`)
   return data
 }

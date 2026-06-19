@@ -5,7 +5,7 @@
  * Do NOT pass token as an argument — apiFetch reads it automatically via getAdminToken().
  */
 
-const API       = import.meta.env.VITE_API_URL || '/api'
+const API       = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
 const TOKEN_KEY = 'cf_admin_token'
 
 /** Read the current admin JWT from sessionStorage */
@@ -89,7 +89,7 @@ export async function uploadProjectFile(projectId, file, fileType, label) {
   form.append('file_type', fileType)
   form.append('label', label)
 
-  return apiFetch(`/projects/${projectId}/files`, {
+  return apiFetch(`/admin/projects/${projectId}/files`, {
     method: 'POST',
     body:   form,
   })
