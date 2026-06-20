@@ -33,7 +33,10 @@ const app  = express()
 const PORT = process.env.PORT || 5000
 
 // ── Security & parsing middleware ─────────────────────────────────────────────
-app.use(helmet())
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+}))
 
 // PRODUCTION: set FRONTEND_URL=https://your-app.vercel.app in Render env vars.
 // Vercel preview deployments get unique *.vercel.app subdomains — the regex
@@ -52,8 +55,8 @@ app.use(cors({
     if (!origin) return cb(null, true)
     // Allow exact whitelisted origins
     if (allowedOrigins.includes(origin)) return cb(null, true)
-    // Allow any Vercel preview deployment (*.vercel.app)
-    if (/^https:\/\/[a-z0-9-]+-[a-z0-9]+-[a-z0-9]+\.vercel\.app$/.test(origin)) return cb(null, true)
+    // Allow any Vercel deployment (*.vercel.app)
+    if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin)) return cb(null, true)
     cb(new Error(`CORS: origin ${origin} not allowed`))
   },
   methods:     ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
