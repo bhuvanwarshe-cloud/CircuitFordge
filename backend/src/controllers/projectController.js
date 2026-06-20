@@ -9,6 +9,8 @@ export async function createProject(req, res, next) {
       description, components, budget_range, notes, program,
     } = req.body
 
+    console.log('[createProject] USER:', req.user?.id, '| BODY keys:', Object.keys(req.body))
+
     if (!title || !deadline || !description) {
       return res.status(400).json({
         success: false,
@@ -18,50 +20,71 @@ export async function createProject(req, res, next) {
 
     const projectRef = `CF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
 
+    const insertPayload = {
+      project_ref:   projectRef,
+      student_id:    req.user.id,
+      title,
+      category_name: category_name || null,
+      semester:      semester || null,
+      college_name:  college_name || null,
+      deadline:      deadline,
+      description,
+      components:    components || null,
+      budget_range:  budget_range || null,
+      notes:         notes || null,
+      program:       program || null,
+      status:        'pending',
+      progress:      0,
+    }
+
+    console.log('[createProject] INSERT payload:', JSON.stringify(insertPayload, null, 2))
+
     const { data: project, error: projectError } = await supabaseAdmin
       .from('projects')
-      .insert({
-        project_ref:   projectRef,
-        student_id:    req.user.id,
-        title,
-        category_name: category_name || null,
-        semester:      semester || null,
-        college_name:  college_name || null,
-        deadline:      deadline,
-        description,
-        components:    components || null,
-        budget_range:  budget_range || null,
-        notes:         notes || null,
-        program:       program || null,
-        status:        'pending',
-        progress:      0,
-      })
+      .insert(insertPayload)
       .select()
       .single()
 
-    if (projectError) throw projectError
+    if (projectError) {
+      console.error('[createProject] SUPABASE INSERT ERROR:', {
+        message: projectError.message,
+        code:    projectError.code,
+        details: projectError.details,
+        hint:    projectError.hint,
+      })
+      throw projectError
+    }
+
+    console.log('[createProject] INSERT SUCCESS, project.id:', project.id)
 
     // Notify all active admins
-    const { data: admins } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('role', 'admin')
-      .eq('is_active', true)
+    try {
+      const { data: admins } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .eq('is_active', true)
 
-    if (admins?.length > 0) {
-      const adminNotifications = admins.map(admin => ({
-        user_id:    admin.id,
-        project_id: project.id,
-        type:       'project_submitted',
-        title:      `New Submission: ${title}`,
-        body:       `${req.profile?.full_name || 'A student'} submitted "${title}" — Deadline: ${new Date(deadline).toLocaleDateString()}`,
-        sent_by:    req.user.id,
-      }))
-      await supabaseAdmin.from('notifications').insert(adminNotifications).catch(console.error)
+      if (admins?.length > 0) {
+        const adminNotifications = admins.map(admin => ({
+          user_id:    admin.id,
+          project_id: project.id,
+          type:       'project_submitted',
+          title:      `New Submission: ${title}`,
+          body:       `${req.profile?.full_name || 'A student'} submitted "${title}" — Deadline: ${new Date(deadline).toLocaleDateString()}`,
+          sent_by:    req.user.id,
+        }))
+        const { error: notifErr } = await supabaseAdmin.from('notifications').insert(adminNotifications)
+        if (notifErr) console.error('[createProject] NOTIFICATION INSERT ERROR:', notifErr)
+      }
+    } catch (notifCatchErr) {
+      // Never let notification failure crash the project submission
+      console.error('[createProject] NOTIFICATION BLOCK CRASH:', notifCatchErr.message)
     }
 
     res.status(201).json({ success: true, message: 'Project submitted successfully.', project })
   } catch (err) {
+    console.error('[createProject] FATAL:', err.message, err.stack)
     next(err)
   }
 }
